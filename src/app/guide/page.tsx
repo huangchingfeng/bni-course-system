@@ -292,7 +292,7 @@ export default function GuidePage() {
                 </Button>
               </Link>
               <a href="#member-types">
-                <Button variant="outline" size="lg" className="border-white/30 text-white hover:bg-white/10">
+                <Button variant="outline" size="lg" className="border-white/30 text-[#0F172A] bg-white/90 hover:bg-transparent hover:text-white transition-colors">
                   我是哪種會員？
                 </Button>
               </a>
