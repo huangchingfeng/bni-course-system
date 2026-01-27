@@ -58,7 +58,6 @@ const memberTypes = [
       "了解分會文化與運作",
     ],
     recommendedCourses: [
-      { code: "MSP+", name: "進階 MSP 培訓", priority: "必修" },
       { code: "REF", name: "引薦工作坊", priority: "推薦" },
       { code: "PRES", name: "簡報技巧工作坊", priority: "推薦" },
     ],
@@ -122,14 +121,6 @@ const courseCategories = [
         description: "了解 BNI 核心價值、系統運作、五大基本功",
         topics: ["BNI 核心價值 Givers Gain", "如何成功使用 BNI", "出席的重要性", "每週簡報技巧", "一對一的價值"],
         suitable: "新會員（入會 3 個月內必修）",
-      },
-      {
-        code: "MSP+",
-        name: "進階 MSP 培訓",
-        duration: "3 小時",
-        description: "深化系統運用，學習產業鏈合作與進階引薦",
-        topics: ["產業鏈倍數成長", "主題簡報技巧", "引薦七步曲", "深度一對一", "Power Team 建立"],
-        suitable: "完成初階 MSP 的會員",
       },
     ],
   },
@@ -238,7 +229,7 @@ const learningPaths = [
     icon: TrendingUpIcon,
     color: "#2563EB",
     steps: [
-      { month: "第 4-6 月", action: "進階 MSP + 引薦工作坊", icon: TargetIcon },
+      { month: "第 4-6 月", action: "引薦工作坊 + 一對一工作坊", icon: TargetIcon },
       { month: "第 7-9 月", action: "簡報工作坊 + Power Team", icon: MicIcon },
       { month: "第 10-12 月", action: "建立穩定引薦循環", icon: SparklesIcon },
     ],
