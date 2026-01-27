@@ -131,7 +131,7 @@ export default async function HomePage() {
                 <Button
                   size="lg"
                   variant="outline"
-                  className="w-full sm:w-auto border-white/40 text-white hover:bg-white/10 backdrop-blur-sm"
+                  className="w-full sm:w-auto border-white/40 text-[#0F172A] bg-white/90 hover:bg-transparent hover:text-white transition-colors backdrop-blur-sm"
                 >
                   會員學習指引
                 </Button>
