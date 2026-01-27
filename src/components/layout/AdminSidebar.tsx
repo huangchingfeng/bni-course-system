@@ -9,6 +9,7 @@ import {
   UsersIcon,
   BuildingIcon,
   BarChart3Icon,
+  ClipboardListIcon,
   ArrowLeftIcon,
 } from "lucide-react"
 
@@ -17,6 +18,11 @@ const menuItems = [
     title: "總覽",
     href: "/admin",
     icon: LayoutDashboardIcon,
+  },
+  {
+    title: "培訓管理",
+    href: "/admin/training",
+    icon: ClipboardListIcon,
   },
   {
     title: "課程管理",
