@@ -10,7 +10,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { PlusIcon, PencilIcon, EyeIcon, UsersIcon } from "lucide-react"
+import { PlusIcon, PencilIcon, EyeIcon, UsersIcon, ArrowUpIcon, ArrowDownIcon, ArrowUpDownIcon } from "lucide-react"
 import { CourseStatus } from "@prisma/client"
 
 const statusLabels: Record<CourseStatus, string> = {
@@ -27,7 +27,73 @@ const statusColors: Record<CourseStatus, string> = {
   CANCELLED: "bg-red-100 text-red-700",
 }
 
-export default async function AdminCoursesPage() {
+type SortField = "title" | "type" | "date" | "registrations" | "status"
+type SortOrder = "asc" | "desc"
+
+function SortHeader({
+  label,
+  field,
+  currentSort,
+  currentOrder,
+}: {
+  label: string
+  field: SortField
+  currentSort: SortField
+  currentOrder: SortOrder
+}) {
+  const isActive = currentSort === field
+  const nextOrder = isActive && currentOrder === "asc" ? "desc" : "asc"
+
+  return (
+    <Link
+      href={`/admin/courses?sort=${field}&order=${nextOrder}`}
+      className="flex items-center gap-1 hover:text-gray-900 transition-colors"
+    >
+      {label}
+      {isActive ? (
+        currentOrder === "asc" ? (
+          <ArrowUpIcon className="h-3.5 w-3.5" />
+        ) : (
+          <ArrowDownIcon className="h-3.5 w-3.5" />
+        )
+      ) : (
+        <ArrowUpDownIcon className="h-3.5 w-3.5 text-gray-400" />
+      )}
+    </Link>
+  )
+}
+
+export default async function AdminCoursesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ sort?: string; order?: string }>
+}) {
+  const params = await searchParams
+  const sortField = (params.sort || "date") as SortField
+  const sortOrder = (params.order || "desc") as SortOrder
+
+  // 建立 Prisma orderBy
+  const orderBy: Record<string, unknown> = {}
+  switch (sortField) {
+    case "title":
+      orderBy.title = sortOrder
+      break
+    case "type":
+      orderBy.type = { code: sortOrder }
+      break
+    case "date":
+      orderBy.date = sortOrder
+      break
+    case "registrations":
+      orderBy.registrations = { _count: sortOrder }
+      break
+    case "status":
+      orderBy.status = sortOrder
+      break
+    default:
+      orderBy.date = "desc"
+  }
+
   const courses = await prisma.course.findMany({
     include: {
       type: true,
@@ -39,7 +105,7 @@ export default async function AdminCoursesPage() {
         },
       },
     },
-    orderBy: { date: "desc" },
+    orderBy,
   })
 
   return (
@@ -63,13 +129,23 @@ export default async function AdminCoursesPage() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>課程名稱</TableHead>
-              <TableHead>類型</TableHead>
-              <TableHead>日期</TableHead>
+              <TableHead>
+                <SortHeader label="課程名稱" field="title" currentSort={sortField} currentOrder={sortOrder} />
+              </TableHead>
+              <TableHead>
+                <SortHeader label="類型" field="type" currentSort={sortField} currentOrder={sortOrder} />
+              </TableHead>
+              <TableHead>
+                <SortHeader label="日期" field="date" currentSort={sortField} currentOrder={sortOrder} />
+              </TableHead>
               <TableHead>時間</TableHead>
               <TableHead>地點</TableHead>
-              <TableHead className="text-center">報名人數</TableHead>
-              <TableHead>狀態</TableHead>
+              <TableHead className="text-center">
+                <SortHeader label="報名人數" field="registrations" currentSort={sortField} currentOrder={sortOrder} />
+              </TableHead>
+              <TableHead>
+                <SortHeader label="狀態" field="status" currentSort={sortField} currentOrder={sortOrder} />
+              </TableHead>
               <TableHead className="text-right">操作</TableHead>
             </TableRow>
           </TableHeader>
