@@ -92,7 +92,7 @@ function buildCourseMessage(
   }
 
   // 報名連結
-  const baseUrl = process.env.NEXTAUTH_URL || "https://bninwb.autolab.cloud"
+  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "https://bninwb.autolab.cloud"
   lines.push("")
   lines.push(`👉 報名連結：${baseUrl}/courses/${course.id}`)
 
