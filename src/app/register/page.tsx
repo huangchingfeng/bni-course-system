@@ -8,13 +8,24 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { toast } from "sonner"
-import { Loader2Icon, UserPlusIcon, ArrowLeftIcon } from "lucide-react"
+import { Loader2Icon, UserPlusIcon, ArrowLeftIcon, CheckIcon } from "lucide-react"
 
 interface Chapter {
   id: string
   name: string
   displayName: string
 }
+
+const roleOptions = [
+  { value: "MEMBER", label: "一般會員" },
+  { value: "AMBASSADOR", label: "大使" },
+  { value: "DIRECTOR_CONSULTANT", label: "董事顧問" },
+  { value: "REGIONAL_DIRECTOR", label: "區域董事" },
+  { value: "EXECUTIVE_DIRECTOR", label: "執行董事" },
+]
+
+// 需要多選分會的角色
+const rolesNeedingChapters = ["DIRECTOR_CONSULTANT", "AMBASSADOR"]
 
 export default function RegisterPage() {
   const router = useRouter()
@@ -28,11 +39,17 @@ export default function RegisterPage() {
     name: "",
     email: "",
     phone: "",
-    chapterInput: "",  // 用戶輸入的分會名稱
+    chapterInput: "",  // 一般會員的所屬分會
     profession: "",
+    role: "MEMBER",
+    managedChapterIds: [] as string[],  // 董事顧問/大使的負責分會
   })
 
-  // 載入分會列表（用於自動完成）
+  const needsChapterMultiSelect = rolesNeedingChapters.includes(formData.role)
+  const needsSingleChapter = !rolesNeedingChapters.includes(formData.role) &&
+    formData.role !== "REGIONAL_DIRECTOR" && formData.role !== "EXECUTIVE_DIRECTOR"
+
+  // 載入分會列表
   useEffect(() => {
     const fetchChapters = async () => {
       try {
@@ -86,12 +103,41 @@ export default function RegisterPage() {
     setShowSuggestions(false)
   }
 
+  const handleToggleManagedChapter = (chapterId: string) => {
+    setFormData((prev) => {
+      const ids = prev.managedChapterIds.includes(chapterId)
+        ? prev.managedChapterIds.filter((id) => id !== chapterId)
+        : [...prev.managedChapterIds, chapterId]
+      return { ...prev, managedChapterIds: ids }
+    })
+  }
+
+  const handleRoleChange = (role: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      role,
+      // 切換角色時清空不需要的欄位
+      chapterInput: rolesNeedingChapters.includes(role) ? "" : prev.chapterInput,
+      managedChapterIds: rolesNeedingChapters.includes(role) ? prev.managedChapterIds : [],
+    }))
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
     // 前端驗證
-    if (!formData.name || !formData.email || !formData.phone || !formData.chapterInput || !formData.profession) {
+    if (!formData.name || !formData.email || !formData.phone || !formData.profession) {
       toast.error("請填寫所有必填欄位")
+      return
+    }
+
+    if (needsSingleChapter && !formData.chapterInput) {
+      toast.error("請填寫所屬分會")
+      return
+    }
+
+    if (needsChapterMultiSelect && formData.managedChapterIds.length === 0) {
+      toast.error("請至少選擇一個負責分會")
       return
     }
 
@@ -107,6 +153,8 @@ export default function RegisterPage() {
           phone: formData.phone,
           chapterInput: formData.chapterInput,
           profession: formData.profession,
+          role: formData.role,
+          managedChapterIds: formData.managedChapterIds,
         }),
       })
 
@@ -199,45 +247,113 @@ export default function RegisterPage() {
                 />
               </div>
 
-              {/* 所屬分會（自動完成） */}
+              {/* 角色選擇 */}
               <div className="space-y-2">
-                <Label htmlFor="chapterInput">
-                  所屬分會 <span className="text-red-500">*</span>
+                <Label>
+                  身份 <span className="text-red-500">*</span>
                 </Label>
-                <div className="relative" ref={suggestionsRef}>
-                  <Input
-                    id="chapterInput"
-                    value={formData.chapterInput}
-                    onChange={(e) => handleChange("chapterInput", e.target.value)}
-                    onFocus={() => {
-                      if (formData.chapterInput.trim() && filteredChapters.length > 0) {
-                        setShowSuggestions(true)
-                      }
-                    }}
-                    placeholder="輸入分會名稱，例如：華冠、華榮"
-                    autoComplete="off"
-                    required
-                  />
-                  {/* 自動完成建議 */}
-                  {showSuggestions && filteredChapters.length > 0 && (
-                    <div className="absolute z-10 w-full mt-1 bg-white border border-[#E2E8F0] rounded-lg shadow-lg max-h-48 overflow-y-auto">
-                      {filteredChapters.map((chapter) => (
+                <div className="grid grid-cols-2 gap-2">
+                  {roleOptions.map((option) => (
+                    <button
+                      key={option.value}
+                      type="button"
+                      onClick={() => handleRoleChange(option.value)}
+                      className={`
+                        px-3 py-2.5 rounded-lg text-sm font-medium border transition-all text-left
+                        ${formData.role === option.value
+                          ? "border-[#D4AF37] bg-[#D4AF37]/10 text-[#0F172A]"
+                          : "border-[#E2E8F0] bg-white text-[#64748B] hover:border-[#CBD5E1]"
+                        }
+                      `}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* 所屬分會（一般會員用） */}
+              {needsSingleChapter && (
+                <div className="space-y-2">
+                  <Label htmlFor="chapterInput">
+                    所屬分會 <span className="text-red-500">*</span>
+                  </Label>
+                  <div className="relative" ref={suggestionsRef}>
+                    <Input
+                      id="chapterInput"
+                      value={formData.chapterInput}
+                      onChange={(e) => handleChange("chapterInput", e.target.value)}
+                      onFocus={() => {
+                        if (formData.chapterInput.trim() && filteredChapters.length > 0) {
+                          setShowSuggestions(true)
+                        }
+                      }}
+                      placeholder="輸入分會名稱，例如：華冠、華榮"
+                      autoComplete="off"
+                      required
+                    />
+                    {/* 自動完成建議 */}
+                    {showSuggestions && filteredChapters.length > 0 && (
+                      <div className="absolute z-10 w-full mt-1 bg-white border border-[#E2E8F0] rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                        {filteredChapters.map((chapter) => (
+                          <button
+                            key={chapter.id}
+                            type="button"
+                            className="w-full px-4 py-2.5 text-left hover:bg-[#F8FAFC] transition-colors text-sm"
+                            onClick={() => handleSelectChapter(chapter)}
+                          >
+                            {chapter.displayName}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  <p className="text-xs text-[#64748B]">
+                    輸入時會顯示建議，也可以直接輸入分會名稱
+                  </p>
+                </div>
+              )}
+
+              {/* 負責分會多選（董事顧問/大使用） */}
+              {needsChapterMultiSelect && (
+                <div className="space-y-2">
+                  <Label>
+                    負責分會 <span className="text-red-500">*</span>
+                  </Label>
+                  <p className="text-xs text-[#64748B] mb-2">
+                    請勾選您負責的分會（可多選）
+                  </p>
+                  <div className="border border-[#E2E8F0] rounded-lg max-h-56 overflow-y-auto">
+                    {chapters.map((chapter) => {
+                      const isSelected = formData.managedChapterIds.includes(chapter.id)
+                      return (
                         <button
                           key={chapter.id}
                           type="button"
-                          className="w-full px-4 py-2.5 text-left hover:bg-[#F8FAFC] transition-colors text-sm"
-                          onClick={() => handleSelectChapter(chapter)}
+                          onClick={() => handleToggleManagedChapter(chapter.id)}
+                          className={`
+                            w-full flex items-center gap-3 px-4 py-2.5 text-sm transition-colors border-b border-[#E2E8F0] last:border-b-0
+                            ${isSelected ? "bg-[#D4AF37]/10 text-[#0F172A]" : "bg-white text-[#64748B] hover:bg-[#F8FAFC]"}
+                          `}
                         >
+                          <div className={`
+                            w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0
+                            ${isSelected ? "border-[#D4AF37] bg-[#D4AF37]" : "border-[#CBD5E1]"}
+                          `}>
+                            {isSelected && <CheckIcon className="h-3 w-3 text-white" />}
+                          </div>
                           {chapter.displayName}
                         </button>
-                      ))}
-                    </div>
+                      )
+                    })}
+                  </div>
+                  {formData.managedChapterIds.length > 0 && (
+                    <p className="text-xs text-[#D4AF37]">
+                      已選擇 {formData.managedChapterIds.length} 個分會
+                    </p>
                   )}
                 </div>
-                <p className="text-xs text-[#64748B]">
-                  輸入時會顯示建議，也可以直接輸入分會名稱
-                </p>
-              </div>
+              )}
 
               {/* 專業別 */}
               <div className="space-y-2">

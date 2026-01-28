@@ -2,6 +2,7 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
+import { useSession } from "next-auth/react"
 import { cn } from "@/lib/utils"
 import {
   LayoutDashboardIcon,
@@ -13,7 +14,14 @@ import {
   ArrowLeftIcon,
 } from "lucide-react"
 
-const menuItems = [
+interface MenuItem {
+  title: string
+  href: string
+  icon: typeof LayoutDashboardIcon
+  adminOnly?: boolean
+}
+
+const allMenuItems: MenuItem[] = [
   {
     title: "總覽",
     href: "/admin",
@@ -28,16 +36,19 @@ const menuItems = [
     title: "課程管理",
     href: "/admin/courses",
     icon: BookOpenIcon,
+    adminOnly: true,
   },
   {
     title: "會員管理",
     href: "/admin/members",
     icon: UsersIcon,
+    adminOnly: true,
   },
   {
     title: "分會管理",
     href: "/admin/chapters",
     icon: BuildingIcon,
+    adminOnly: true,
   },
   {
     title: "統計報表",
@@ -48,6 +59,13 @@ const menuItems = [
 
 export function AdminSidebar() {
   const pathname = usePathname()
+  const { data: session } = useSession()
+  const isAdmin = session?.user?.role === "ADMIN"
+
+  // ADMIN 看到全部菜單，其他領導角色只看到非 adminOnly 的項目
+  const menuItems = isAdmin
+    ? allMenuItems
+    : allMenuItems.filter((item) => !item.adminOnly)
 
   return (
     <aside className="w-64 bg-white border-r min-h-[calc(100vh-4rem)] sticky top-16">
@@ -59,6 +77,13 @@ export function AdminSidebar() {
           <ArrowLeftIcon className="h-4 w-4" />
           返回前台
         </Link>
+
+        {/* 角色標示 */}
+        {!isAdmin && session?.user?.role && (
+          <div className="mb-4 px-3 py-2 rounded-lg bg-amber-50 border border-amber-200">
+            <p className="text-xs text-amber-700 font-medium">唯讀模式</p>
+          </div>
+        )}
 
         <nav className="space-y-1">
           {menuItems.map((item) => {

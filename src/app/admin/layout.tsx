@@ -2,6 +2,8 @@ import { redirect } from "next/navigation"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { AdminSidebar } from "@/components/layout/AdminSidebar"
+import { canAccessAdmin } from "@/lib/permissions"
+import { Role } from "@prisma/client"
 
 export default async function AdminLayout({
   children,
@@ -10,7 +12,7 @@ export default async function AdminLayout({
 }) {
   const session = await getServerSession(authOptions)
 
-  if (!session || session.user.role !== "ADMIN") {
+  if (!session || !canAccessAdmin(session.user.role as Role)) {
     redirect("/")
   }
 

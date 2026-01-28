@@ -19,7 +19,8 @@ model Chapter {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  members     Member[]
+  members        Member[]
+  managedBy      MemberChapter[]  // 哪些董事顧問/大使負責此分會
 
   @@index([name])
 }
@@ -46,18 +47,37 @@ model Member {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  registrations Registration[]
-  accounts      Account[]
-  sessions      Session[]
+  registrations   Registration[]
+  accounts        Account[]
+  sessions        Session[]
+  managedChapters MemberChapter[]  // 董事顧問/大使負責的分會
 
   @@index([chapterId])
   @@index([email])
 }
 
 enum Role {
-  MEMBER          // 一般會員
-  CHAPTER_LEADER  // 分會幹部
-  ADMIN           // 區域管理員
+  MEMBER               // 一般會員
+  CHAPTER_LEADER       // 分會幹部
+  AMBASSADOR           // 大使
+  DIRECTOR_CONSULTANT  // 董事顧問
+  REGIONAL_DIRECTOR    // 區域董事
+  EXECUTIVE_DIRECTOR   // 執行董事
+  ADMIN                // 區域管理員
+}
+
+// 董事顧問/大使 負責的分會（多對多）
+model MemberChapter {
+  id        String   @id @default(cuid())
+  memberId  String
+  member    Member   @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  chapterId String
+  chapter   Chapter  @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([memberId, chapterId])
+  @@index([memberId])
+  @@index([chapterId])
 }
 
 // 課程類型

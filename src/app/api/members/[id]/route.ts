@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { Role } from "@prisma/client"
+import { canAccessAdmin, isAdminRole } from "@/lib/permissions"
 
 // GET /api/members/[id] - 取得單一會員
 export async function GET(
@@ -12,7 +13,7 @@ export async function GET(
   try {
     const session = await getServerSession(authOptions)
 
-    if (!session || session.user.role !== "ADMIN") {
+    if (!session || !canAccessAdmin(session.user.role as Role)) {
       return NextResponse.json(
         { error: "Unauthorized" },
         { status: 401 }
@@ -45,6 +46,16 @@ export async function GET(
             },
           },
         },
+        managedChapters: {
+          include: {
+            chapter: {
+              select: {
+                id: true,
+                displayName: true,
+              },
+            },
+          },
+        },
       },
     })
 
@@ -73,7 +84,7 @@ export async function PATCH(
   try {
     const session = await getServerSession(authOptions)
 
-    if (!session || session.user.role !== "ADMIN") {
+    if (!session || !isAdminRole(session.user.role as Role)) {
       return NextResponse.json(
         { error: "Unauthorized" },
         { status: 401 }
@@ -82,7 +93,7 @@ export async function PATCH(
 
     const { id } = await params
     const body = await request.json()
-    const { name, email, phone, chapterId, role, isActive } = body
+    const { name, email, phone, chapterId, role, isActive, managedChapterIds } = body
 
     // 檢查會員是否存在
     const existingMember = await prisma.member.findUnique({
@@ -107,6 +118,23 @@ export async function PATCH(
           { error: "此 Email 已被使用" },
           { status: 400 }
         )
+      }
+    }
+
+    // 更新 managedChapters（如有提供）
+    if (Array.isArray(managedChapterIds)) {
+      // 先刪除舊的
+      await prisma.memberChapter.deleteMany({
+        where: { memberId: id },
+      })
+      // 再建立新的
+      if (managedChapterIds.length > 0) {
+        await prisma.memberChapter.createMany({
+          data: managedChapterIds.map((chapterId: string) => ({
+            memberId: id,
+            chapterId,
+          })),
+        })
       }
     }
 
@@ -148,7 +176,7 @@ export async function DELETE(
   try {
     const session = await getServerSession(authOptions)
 
-    if (!session || session.user.role !== "ADMIN") {
+    if (!session || !isAdminRole(session.user.role as Role)) {
       return NextResponse.json(
         { error: "Unauthorized" },
         { status: 401 }

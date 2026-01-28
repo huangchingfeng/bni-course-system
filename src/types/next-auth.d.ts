@@ -11,6 +11,7 @@ declare module "next-auth" {
       role: Role
       chapterId: string
       chapterName: string
+      managedChapterIds: string[]
     }
   }
 
@@ -19,6 +20,7 @@ declare module "next-auth" {
     role?: Role
     chapterId?: string
     chapterName?: string
+    managedChapterIds?: string[]
   }
 }
 
@@ -28,5 +30,6 @@ declare module "next-auth/jwt" {
     role: Role
     chapterId: string
     chapterName: string
+    managedChapterIds: string[]
   }
 }

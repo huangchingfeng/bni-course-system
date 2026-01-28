@@ -113,7 +113,8 @@ export function Header() {
   }
 
   const t = headerTranslations[currentLang]
-  const isAdmin = session?.user?.role === "ADMIN"
+  const adminRoles = ["ADMIN", "EXECUTIVE_DIRECTOR", "REGIONAL_DIRECTOR", "DIRECTOR_CONSULTANT", "AMBASSADOR"]
+  const canAccessAdminPanel = session?.user?.role ? adminRoles.includes(session.user.role) : false
   const isAdminPage = pathname?.startsWith("/admin")
 
   // Don't show header on admin pages (they have their own layout)
@@ -124,7 +125,7 @@ export function Header() {
     { href: "/courses", label: t.nav.courses, icon: CalendarIcon },
     { href: "/guide", label: t.nav.guide, icon: CompassIcon },
     ...(session ? [{ href: "/my", label: t.nav.myCourses, icon: UserIcon }] : []),
-    ...(isAdmin ? [{ href: "/admin", label: t.nav.admin, icon: LayoutDashboardIcon }] : []),
+    ...(canAccessAdminPanel ? [{ href: "/admin", label: t.nav.admin, icon: LayoutDashboardIcon }] : []),
   ]
 
   return (
@@ -251,7 +252,7 @@ export function Header() {
                       {t.auth.profile}
                     </Link>
                   </DropdownMenuItem>
-                  {isAdmin && (
+                  {canAccessAdminPanel && (
                     <DropdownMenuItem asChild>
                       <Link href="/admin" className="cursor-pointer">
                         <LayoutDashboardIcon className="h-4 w-4 mr-2 text-[#64748B]" />

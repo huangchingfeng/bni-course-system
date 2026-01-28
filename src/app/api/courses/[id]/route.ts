@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
+import { Role } from "@prisma/client"
+import { isAdminRole } from "@/lib/permissions"
 
 // GET /api/courses/[id] - 取得單一課程詳情
 export async function GET(
@@ -64,7 +66,7 @@ export async function PATCH(
   try {
     const session = await getServerSession(authOptions)
 
-    if (!session || session.user.role !== "ADMIN") {
+    if (!session || !isAdminRole(session.user.role as Role)) {
       return NextResponse.json(
         { error: "Unauthorized" },
         { status: 401 }
@@ -108,7 +110,7 @@ export async function DELETE(
   try {
     const session = await getServerSession(authOptions)
 
-    if (!session || session.user.role !== "ADMIN") {
+    if (!session || !isAdminRole(session.user.role as Role)) {
       return NextResponse.json(
         { error: "Unauthorized" },
         { status: 401 }

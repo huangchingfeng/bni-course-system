@@ -4,6 +4,7 @@ import LineProvider from "next-auth/providers/line"
 import CredentialsProvider from "next-auth/providers/credentials"
 import { prisma } from "./prisma"
 import { Role } from "@prisma/client"
+import { needsManagedChapters } from "./permissions"
 
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma) as NextAuthOptions["adapter"],
@@ -26,7 +27,10 @@ export const authOptions: NextAuthOptions = {
         // 開發環境：找到對應 email 的會員就允許登入
         const member = await prisma.member.findUnique({
           where: { email: credentials.email },
-          include: { chapter: true },
+          include: {
+            chapter: true,
+            managedChapters: { select: { chapterId: true } },
+          },
         })
 
         if (member) {
@@ -38,6 +42,7 @@ export const authOptions: NextAuthOptions = {
             role: member.role,
             chapterId: member.chapterId || undefined,
             chapterName: member.chapter?.displayName || member.chapterName || "",
+            managedChapterIds: member.managedChapters.map((mc) => mc.chapterId),
           }
         }
 
@@ -55,6 +60,7 @@ export const authOptions: NextAuthOptions = {
         token.role = (user as { role?: Role }).role || Role.MEMBER
         token.chapterId = (user as { chapterId?: string }).chapterId || ""
         token.chapterName = (user as { chapterName?: string }).chapterName || ""
+        token.managedChapterIds = (user as { managedChapterIds?: string[] }).managedChapterIds || []
       }
       return token
     },
@@ -64,6 +70,7 @@ export const authOptions: NextAuthOptions = {
         session.user.role = token.role as Role
         session.user.chapterId = token.chapterId as string
         session.user.chapterName = token.chapterName as string
+        session.user.managedChapterIds = token.managedChapterIds as string[]
       }
       return session
     },
@@ -76,8 +83,16 @@ export const authOptions: NextAuthOptions = {
 
         if (!existingMember) {
           // 如果是新會員，需要先完成註冊流程
-          // 這裡可以重導向到註冊頁面
           return `/register?email=${encodeURIComponent(user.email)}&name=${encodeURIComponent(user.name || "")}`
+        }
+
+        // 已存在的 LINE 會員：載入 managedChapterIds
+        if (needsManagedChapters(existingMember.role)) {
+          const managed = await prisma.memberChapter.findMany({
+            where: { memberId: existingMember.id },
+            select: { chapterId: true },
+          })
+          user.managedChapterIds = managed.map((mc) => mc.chapterId)
         }
       }
       return true
