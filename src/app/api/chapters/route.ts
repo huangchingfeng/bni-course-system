@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { Role } from "@prisma/client"
-import { isAdminRole } from "@/lib/permissions"
+import { isAdmin } from "@/lib/permissions"
 
 // GET /api/chapters - 取得分會列表
 export async function GET() {
@@ -37,7 +37,7 @@ export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
 
-    if (!session || !isAdminRole(session.user.role as Role)) {
+    if (!session || !isAdmin(session.user.role as Role)) {
       return NextResponse.json(
         { error: "Unauthorized" },
         { status: 401 }
