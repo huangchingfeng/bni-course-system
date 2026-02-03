@@ -12,6 +12,8 @@ import {
   BarChart3Icon,
   ClipboardListIcon,
   ArrowLeftIcon,
+  ShieldIcon,
+  FileTextIcon,
 } from "lucide-react"
 
 interface MenuItem {
@@ -42,7 +44,6 @@ const allMenuItems: MenuItem[] = [
     title: "會員管理",
     href: "/admin/members",
     icon: UsersIcon,
-    adminOnly: true,
   },
   {
     title: "分會管理",
@@ -54,6 +55,18 @@ const allMenuItems: MenuItem[] = [
     title: "統計報表",
     href: "/admin/stats",
     icon: BarChart3Icon,
+  },
+  {
+    title: "權限管理",
+    href: "/admin/permissions",
+    icon: ShieldIcon,
+    adminOnly: true,
+  },
+  {
+    title: "操作日誌",
+    href: "/admin/logs",
+    icon: FileTextIcon,
+    adminOnly: true,
   },
 ]
 

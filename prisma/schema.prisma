@@ -51,6 +51,7 @@ model Member {
   accounts        Account[]
   sessions        Session[]
   managedChapters MemberChapter[]  // 董事顧問/大使負責的分會
+  auditLogs       AuditLog[]       // 此會員執行的操作日誌
 
   @@index([chapterId])
   @@index([email])
@@ -58,7 +59,9 @@ model Member {
 
 enum Role {
   MEMBER               // 一般會員
-  CHAPTER_LEADER       // 分會幹部
+  MENTOR_COORDINATOR   // 導師協調員（新增）
+  EVENT_COORDINATOR    // 活動協調員（新增）
+  CHAPTER_LEADER       // 分會幹部（保留）
   AMBASSADOR           // 大使
   DIRECTOR_CONSULTANT  // 董事顧問
   REGIONAL_DIRECTOR    // 區域董事
@@ -200,4 +203,41 @@ model VerificationToken {
   expires    DateTime
 
   @@unique([identifier, token])
+}
+
+// ============================================
+// 操作日誌系統
+// ============================================
+
+// 操作日誌
+model AuditLog {
+  id          String      @id @default(cuid())
+  userId      String                          // 操作者 ID
+  userEmail   String                          // 操作者 Email（方便查詢）
+  userName    String?                         // 操作者姓名
+  action      AuditAction                     // 操作類型
+  targetType  String                          // 目標類型 (Member, Course, Registration, etc.)
+  targetId    String?                         // 目標 ID
+  targetName  String?                         // 目標名稱（方便閱讀）
+  changes     Json?                           // 變更內容（舊值 → 新值）
+  metadata    Json?                           // 其他資訊（如 IP 位址）
+  createdAt   DateTime    @default(now())
+
+  user        Member      @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([action])
+  @@index([targetType])
+  @@index([createdAt])
+}
+
+enum AuditAction {
+  CREATE              // 新增
+  UPDATE              // 更新
+  DELETE              // 刪除
+  LOGIN               // 登入
+  LOGOUT              // 登出
+  PERMISSION_CHANGE   // 權限變更
+  REGISTRATION        // 報名
+  CANCEL_REGISTRATION // 取消報名
 }

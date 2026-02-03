@@ -3,7 +3,8 @@ import { prisma } from "@/lib/prisma"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { Role } from "@prisma/client"
-import { canAccessAdmin, isAdminRole } from "@/lib/permissions"
+import { canAccessAdmin, isAdmin, canViewMember } from "@/lib/permissions"
+import { logUpdateMember, logDeleteMember } from "@/lib/audit"
 
 // GET /api/members/[id] - 取得單一會員
 export async function GET(
@@ -22,6 +23,21 @@ export async function GET(
 
     const { id } = await params
 
+    // 檢查是否有權限查看此會員
+    const hasAccess = await canViewMember(
+      session.user.id,
+      session.user.role as Role,
+      session.user.chapterId || null,
+      id
+    )
+
+    if (!hasAccess) {
+      return NextResponse.json(
+        { error: "無權限查看此會員" },
+        { status: 403 }
+      )
+    }
+
     const member = await prisma.member.findUnique({
       where: { id },
       include: {
@@ -35,8 +51,15 @@ export async function GET(
           include: {
             course: {
               select: {
+                id: true,
                 title: true,
                 date: true,
+                type: {
+                  select: {
+                    code: true,
+                    color: true,
+                  },
+                },
               },
             },
           },
@@ -84,7 +107,7 @@ export async function PATCH(
   try {
     const session = await getServerSession(authOptions)
 
-    if (!session || !isAdminRole(session.user.role as Role)) {
+    if (!session || !isAdmin(session.user.role as Role)) {
       return NextResponse.json(
         { error: "Unauthorized" },
         { status: 401 }
@@ -98,6 +121,11 @@ export async function PATCH(
     // 檢查會員是否存在
     const existingMember = await prisma.member.findUnique({
       where: { id },
+      include: {
+        managedChapters: {
+          select: { chapterId: true },
+        },
+      },
     })
 
     if (!existingMember) {
@@ -105,6 +133,17 @@ export async function PATCH(
         { error: "Member not found" },
         { status: 404 }
       )
+    }
+
+    // 記錄舊資料（用於日誌）
+    const oldData = {
+      name: existingMember.name,
+      email: existingMember.email,
+      phone: existingMember.phone,
+      chapterId: existingMember.chapterId,
+      role: existingMember.role,
+      isActive: existingMember.isActive,
+      managedChapterIds: existingMember.managedChapters.map((mc) => mc.chapterId),
     }
 
     // 如果 Email 有變更，檢查是否重複
@@ -158,6 +197,29 @@ export async function PATCH(
       },
     })
 
+    // 記錄操作日誌
+    const newData = {
+      name,
+      email,
+      phone,
+      chapterId,
+      role,
+      isActive,
+      managedChapterIds: managedChapterIds || oldData.managedChapterIds,
+    }
+
+    await logUpdateMember(
+      {
+        id: session.user.id,
+        email: session.user.email!,
+        name: session.user.name,
+      },
+      member.id,
+      member.name,
+      oldData,
+      newData
+    )
+
     return NextResponse.json(member)
   } catch (error) {
     console.error("Error updating member:", error)
@@ -176,7 +238,7 @@ export async function DELETE(
   try {
     const session = await getServerSession(authOptions)
 
-    if (!session || !isAdminRole(session.user.role as Role)) {
+    if (!session || !isAdmin(session.user.role as Role)) {
       return NextResponse.json(
         { error: "Unauthorized" },
         { status: 401 }
@@ -185,11 +247,35 @@ export async function DELETE(
 
     const { id } = await params
 
+    // 取得會員名稱（用於日誌）
+    const member = await prisma.member.findUnique({
+      where: { id },
+      select: { name: true },
+    })
+
+    if (!member) {
+      return NextResponse.json(
+        { error: "Member not found" },
+        { status: 404 }
+      )
+    }
+
     // 軟刪除：設定 isActive = false
     await prisma.member.update({
       where: { id },
       data: { isActive: false },
     })
+
+    // 記錄操作日誌
+    await logDeleteMember(
+      {
+        id: session.user.id,
+        email: session.user.email!,
+        name: session.user.name,
+      },
+      id,
+      member.name
+    )
 
     return NextResponse.json({ success: true })
   } catch (error) {

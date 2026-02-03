@@ -1,5 +1,7 @@
-import { notFound } from "next/navigation"
+import { notFound, redirect } from "next/navigation"
 import Link from "next/link"
+import { getServerSession } from "next-auth"
+import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -17,21 +19,48 @@ import {
   MapPinIcon,
   UsersIcon,
   BuildingIcon,
+  EyeIcon,
 } from "lucide-react"
+import { Role } from "@prisma/client"
+import { canAccessAdmin, getVisibleChapterIds } from "@/lib/permissions"
 
 interface PageProps {
   params: Promise<{ id: string }>
 }
 
 export default async function TrainingDetailPage({ params }: PageProps) {
+  const session = await getServerSession(authOptions)
+
+  if (!session || !canAccessAdmin(session.user.role as Role)) {
+    redirect("/")
+  }
+
   const { id } = await params
+
+  // 獲取可見分會 ID
+  const visibleChapterIds = await getVisibleChapterIds(
+    session.user.id,
+    session.user.role as Role,
+    session.user.chapterId
+  )
+
+  // 是否有權限限制
+  const hasPermissionFilter = visibleChapterIds !== null
 
   const course = await prisma.course.findUnique({
     where: { id },
     include: {
       type: true,
       registrations: {
-        where: { status: "REGISTERED" },
+        where: {
+          status: "REGISTERED",
+          // 根據可見分會過濾報名
+          ...(visibleChapterIds !== null && {
+            member: {
+              chapterId: { in: visibleChapterIds },
+            },
+          }),
+        },
         include: {
           member: {
             include: {
@@ -88,6 +117,19 @@ export default async function TrainingDetailPage({ params }: PageProps) {
         返回培訓管理
       </Link>
 
+      {/* 權限提示 */}
+      {hasPermissionFilter && (
+        <div className="mb-6 flex items-center gap-2 text-sm text-amber-700 bg-amber-50 px-3 py-2 rounded-lg border border-amber-200">
+          <EyeIcon className="h-4 w-4" />
+          <span>
+            僅顯示您負責分會的報名資料
+            {visibleChapterIds && visibleChapterIds.length > 0
+              ? `（${visibleChapterIds.length} 個分會）`
+              : ""}
+          </span>
+        </div>
+      )}
+
       {/* 課程資訊頭部 */}
       <div className="bg-white rounded-xl border overflow-hidden mb-6">
         <div
@@ -132,8 +174,8 @@ export default async function TrainingDetailPage({ params }: PageProps) {
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <UsersIcon className="h-4 w-4" />
               <span>
-                {registeredCount} 人報名
-                {course.capacity && ` / ${course.capacity} 上限`}
+                {registeredCount} 人{hasPermissionFilter ? "（可見）" : "報名"}
+                {course.capacity && !hasPermissionFilter && ` / ${course.capacity} 上限`}
               </span>
             </div>
           </div>
@@ -145,14 +187,18 @@ export default async function TrainingDetailPage({ params }: PageProps) {
         <div className="bg-white rounded-xl border p-5">
           <div className="flex items-center gap-2 mb-2">
             <UsersIcon className="h-4 w-4 text-[#D4AF37]" />
-            <span className="text-sm text-muted-foreground">參加人數</span>
+            <span className="text-sm text-muted-foreground">
+              {hasPermissionFilter ? "可見人數" : "參加人數"}
+            </span>
           </div>
           <p className="text-3xl font-bold">{registeredCount}</p>
         </div>
         <div className="bg-white rounded-xl border p-5">
           <div className="flex items-center gap-2 mb-2">
             <BuildingIcon className="h-4 w-4 text-[#2563EB]" />
-            <span className="text-sm text-muted-foreground">參加分會數</span>
+            <span className="text-sm text-muted-foreground">
+              {hasPermissionFilter ? "可見分會數" : "參加分會數"}
+            </span>
           </div>
           <p className="text-3xl font-bold">{chapterCount}</p>
         </div>
@@ -176,7 +222,7 @@ export default async function TrainingDetailPage({ params }: PageProps) {
             <div className="px-6 py-4 border-b bg-gray-50">
               <h2 className="text-lg font-semibold flex items-center gap-2">
                 <UsersIcon className="h-5 w-5 text-[#D4AF37]" />
-                參加者名單（{registeredCount} 人）
+                {hasPermissionFilter ? "可見報名名單" : "參加者名單"}（{registeredCount} 人）
               </h2>
             </div>
             {course.registrations.length > 0 ? (
@@ -216,7 +262,9 @@ export default async function TrainingDetailPage({ params }: PageProps) {
               </Table>
             ) : (
               <div className="p-12 text-center text-muted-foreground">
-                尚無人報名
+                {hasPermissionFilter
+                  ? "您負責的分會尚無人報名此課程"
+                  : "尚無人報名"}
               </div>
             )}
           </div>
@@ -249,7 +297,9 @@ export default async function TrainingDetailPage({ params }: PageProps) {
               </div>
             ) : (
               <div className="p-8 text-center text-muted-foreground">
-                尚無報名資料
+                {hasPermissionFilter
+                  ? "您負責的分會尚無報名資料"
+                  : "尚無報名資料"}
               </div>
             )}
           </div>

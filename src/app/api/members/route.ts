@@ -3,7 +3,8 @@ import { prisma } from "@/lib/prisma"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { Role } from "@prisma/client"
-import { canAccessAdmin, isAdminRole, getVisibleChapterIds } from "@/lib/permissions"
+import { canAccessAdmin, isAdmin, getVisibleChapterIds } from "@/lib/permissions"
+import { logCreateMember } from "@/lib/audit"
 
 // GET /api/members - 取得會員列表
 export async function GET() {
@@ -17,14 +18,19 @@ export async function GET() {
       )
     }
 
-    // 根據角色過濾可見分會
+    // 根據角色過濾可見分會（支援協調員角色）
     const visibleChapterIds = await getVisibleChapterIds(
       session.user.id,
-      session.user.role as Role
+      session.user.role as Role,
+      session.user.chapterId // 協調員需要自己的分會 ID
     )
 
     const where: Record<string, unknown> = {}
     if (visibleChapterIds !== null) {
+      if (visibleChapterIds.length === 0) {
+        // 無權限看任何會員
+        return NextResponse.json([])
+      }
       where.chapterId = { in: visibleChapterIds }
     }
 
@@ -35,6 +41,16 @@ export async function GET() {
           select: {
             id: true,
             displayName: true,
+          },
+        },
+        managedChapters: {
+          include: {
+            chapter: {
+              select: {
+                id: true,
+                displayName: true,
+              },
+            },
           },
         },
         _count: {
@@ -66,7 +82,7 @@ export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
 
-    if (!session || !isAdminRole(session.user.role as Role)) {
+    if (!session || !isAdmin(session.user.role as Role)) {
       return NextResponse.json(
         { error: "Unauthorized" },
         { status: 401 }
@@ -130,6 +146,18 @@ export async function POST(request: NextRequest) {
         },
       },
     })
+
+    // 記錄操作日誌
+    await logCreateMember(
+      {
+        id: session.user.id,
+        email: session.user.email!,
+        name: session.user.name,
+      },
+      member.id,
+      member.name,
+      { name, email, phone, chapterId, role, managedChapterIds }
+    )
 
     return NextResponse.json(member, { status: 201 })
   } catch (error) {

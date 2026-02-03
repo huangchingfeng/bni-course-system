@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { CourseStatus, RegistrationStatus } from "@prisma/client"
+import { logRegistration, logCancelRegistration } from "@/lib/audit"
 
 // POST /api/registrations - 報名課程
 export async function POST(request: NextRequest) {
@@ -87,6 +88,18 @@ export async function POST(request: NextRequest) {
         },
       })
 
+      // 記錄操作日誌
+      await logRegistration(
+        {
+          id: session.user.id,
+          email: session.user.email!,
+          name: session.user.name,
+        },
+        registration.id,
+        session.user.name || session.user.email!,
+        course.title
+      )
+
       return NextResponse.json(registration, { status: 200 })
     }
 
@@ -102,6 +115,18 @@ export async function POST(request: NextRequest) {
         },
       },
     })
+
+    // 記錄操作日誌
+    await logRegistration(
+      {
+        id: session.user.id,
+        email: session.user.email!,
+        name: session.user.name,
+      },
+      registration.id,
+      session.user.name || session.user.email!,
+      course.title
+    )
 
     return NextResponse.json(registration, { status: 201 })
   } catch (error) {
@@ -206,6 +231,18 @@ export async function DELETE(request: NextRequest) {
       where: { id: registrationId },
       data: { status: RegistrationStatus.CANCELLED },
     })
+
+    // 記錄操作日誌
+    await logCancelRegistration(
+      {
+        id: session.user.id,
+        email: session.user.email!,
+        name: session.user.name,
+      },
+      registrationId,
+      session.user.name || session.user.email!,
+      registration.course.title
+    )
 
     return NextResponse.json({ success: true })
   } catch (error) {

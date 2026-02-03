@@ -1,4 +1,7 @@
 import Link from "next/link"
+import { redirect } from "next/navigation"
+import { getServerSession } from "next-auth"
+import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -15,20 +18,46 @@ import {
   CalendarIcon,
   ClipboardListIcon,
   ChevronRightIcon,
+  EyeIcon,
 } from "lucide-react"
+import { Role } from "@prisma/client"
+import { canAccessAdmin, getVisibleChapterIds } from "@/lib/permissions"
 
 export default async function AdminTrainingPage() {
+  const session = await getServerSession(authOptions)
+
+  if (!session || !canAccessAdmin(session.user.role as Role)) {
+    redirect("/")
+  }
+
+  // 獲取可見分會 ID
+  const visibleChapterIds = await getVisibleChapterIds(
+    session.user.id,
+    session.user.role as Role,
+    session.user.chapterId
+  )
+
+  // 查詢課程時，根據權限過濾報名資料
   const courses = await prisma.course.findMany({
     include: {
       type: true,
       registrations: {
-        where: { status: "REGISTERED" },
+        where: {
+          status: "REGISTERED",
+          // 根據可見分會過濾報名
+          ...(visibleChapterIds !== null && {
+            member: {
+              chapterId: { in: visibleChapterIds },
+            },
+          }),
+        },
         include: {
           member: {
             select: {
               id: true,
               name: true,
               chapterName: true,
+              chapterId: true,
               chapter: {
                 select: { displayName: true },
               },
@@ -43,7 +72,7 @@ export default async function AdminTrainingPage() {
   const now = new Date()
   now.setHours(0, 0, 0, 0)
 
-  // 統計
+  // 統計（只計算可見的報名）
   const totalRegistrations = courses.reduce(
     (sum, c) => sum + c.registrations.length,
     0
@@ -63,6 +92,9 @@ export default async function AdminTrainingPage() {
     return chapters.size
   }
 
+  // 是否有權限限制（非全部可見）
+  const hasPermissionFilter = visibleChapterIds !== null
+
   return (
     <div className="p-8">
       {/* 標題 */}
@@ -76,6 +108,18 @@ export default async function AdminTrainingPage() {
         <p className="text-muted-foreground">
           查看每場培訓的參加人數、分會分佈與詳細名單
         </p>
+        {/* 權限提示 */}
+        {hasPermissionFilter && (
+          <div className="mt-3 flex items-center gap-2 text-sm text-amber-700 bg-amber-50 px-3 py-2 rounded-lg border border-amber-200">
+            <EyeIcon className="h-4 w-4" />
+            <span>
+              僅顯示您負責分會的報名資料
+              {visibleChapterIds && visibleChapterIds.length > 0
+                ? `（${visibleChapterIds.length} 個分會）`
+                : ""}
+            </span>
+          </div>
+        )}
       </div>
 
       {/* 總覽卡片 */}
@@ -92,7 +136,9 @@ export default async function AdminTrainingPage() {
         </div>
         <div className="bg-white rounded-xl border p-5">
           <div className="flex items-center justify-between mb-3">
-            <span className="text-sm text-muted-foreground">總報名人次</span>
+            <span className="text-sm text-muted-foreground">
+              {hasPermissionFilter ? "可見報名人次" : "總報名人次"}
+            </span>
             <UsersIcon className="h-4 w-4 text-muted-foreground" />
           </div>
           <p className="text-2xl font-bold">{totalRegistrations}</p>
@@ -139,7 +185,7 @@ export default async function AdminTrainingPage() {
                   <TableHead className="text-center">
                     <div className="flex items-center justify-center gap-1">
                       <UsersIcon className="h-3.5 w-3.5" />
-                      參加人數
+                      {hasPermissionFilter ? "可見人數" : "參加人數"}
                     </div>
                   </TableHead>
                   <TableHead className="text-center">
@@ -227,7 +273,7 @@ export default async function AdminTrainingPage() {
                   <TableHead className="text-center">
                     <div className="flex items-center justify-center gap-1">
                       <UsersIcon className="h-3.5 w-3.5" />
-                      參加人數
+                      {hasPermissionFilter ? "可見人數" : "參加人數"}
                     </div>
                   </TableHead>
                   <TableHead className="text-center">
