@@ -35,8 +35,8 @@ export async function logAudit(input: AuditLogInput) {
         targetType: input.targetType,
         targetId: input.targetId,
         targetName: input.targetName,
-        changes: input.changes ?? Prisma.JsonNull,
-        metadata: input.metadata ?? Prisma.JsonNull,
+        changes: (input.changes ?? Prisma.JsonNull) as Prisma.InputJsonValue,
+        metadata: (input.metadata ?? Prisma.JsonNull) as Prisma.InputJsonValue,
       },
     })
   } catch (error) {
