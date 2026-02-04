@@ -53,6 +53,9 @@ export function isAdmin(role: Role): boolean {
   return role === Role.ADMIN
 }
 
+// 別名：向後兼容
+export const isAdminRole = isAdmin
+
 // 可進後台的角色（層級 >= 1）
 const adminAccessRoles: Role[] = [
   Role.ADMIN,
