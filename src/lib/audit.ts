@@ -1,4 +1,4 @@
-import { AuditAction } from "@prisma/client"
+import { AuditAction, Prisma } from "@prisma/client"
 import { prisma } from "./prisma"
 import { ROLE_LABELS } from "./permissions"
 import { Role } from "@prisma/client"
@@ -35,8 +35,8 @@ export async function logAudit(input: AuditLogInput) {
         targetType: input.targetType,
         targetId: input.targetId,
         targetName: input.targetName,
-        changes: input.changes,
-        metadata: input.metadata,
+        changes: input.changes ?? Prisma.JsonNull,
+        metadata: input.metadata ?? Prisma.JsonNull,
       },
     })
   } catch (error) {
